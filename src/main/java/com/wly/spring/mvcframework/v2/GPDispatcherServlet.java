@@ -1,36 +1,33 @@
 package com.wly.spring.mvcframework.v2;
 
-import com.wly.spring.mvcframework.annotation.GPAutowired;
-import com.wly.spring.mvcframework.annotation.GPController;
-import com.wly.spring.mvcframework.annotation.GPRequestMapping;
-import com.wly.spring.mvcframework.annotation.GPService;
+import com.wly.spring.mvcframework.annotation.*;
 
 import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.*;
 
 public class GPDispatcherServlet extends HttpServlet {
-    private Properties contextConfig = new Properties();
-    private List<String> classNames = new ArrayList<String>();
-    private Map<String,Object> ioc = new HashMap<String, Object>();
-    private Map<String,Method> handlerMapping = new HashMap<String, Method>();
+    private final Properties contextConfig = new Properties();
+    private final List<String> classNames = new ArrayList<>();
+    private final Map<String,Object> ioc = new HashMap<>();
+    private final Map<String,Method> handlerMapping = new HashMap<>();
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws  IOException {
         doPost(req,resp);
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
             doDispatch(req,resp);
         } catch (Exception e) {
@@ -40,7 +37,7 @@ public class GPDispatcherServlet extends HttpServlet {
     }
 
     @Override
-    public void init(ServletConfig config) throws ServletException {
+    public void init(ServletConfig config) {
         //1 加载配置文件
         doLoadConfig(config.getInitParameter("contextConfigLocation"));
         //2.扫描相关类
@@ -54,18 +51,21 @@ public class GPDispatcherServlet extends HttpServlet {
         System.out.println("GP Spring framework is init !!!!!");
     }
 
+    @SuppressWarnings("unchecked")
     private void doDispatch (HttpServletRequest req,HttpServletResponse resp)  throws Exception {
         String url = req.getRequestURI();
-        String contextPath = req.getContextPath();
-        url = url.replaceAll(contextPath,"").replaceAll("/+","/");
+        //String contextPath = req.getContextPath();
+        url = url.replaceAll("gpmvc","").replaceAll("/+","/");
         if (!this.handlerMapping.containsKey(url)){
             resp.getWriter().write("404 Not Found!");
             return;
         }
         Method method = this.handlerMapping.get(url);
         Map<String,String[]> parameterMap = req.getParameterMap();
+        //Object[] paramValues = new Object[]{req,resp,(parameterMap.get("name"))[0] };
         Class<?>[] parameterTypes = method.getParameterTypes();
         Object[] paramValues = new Object[parameterTypes.length];
+        Annotation[][] paramAnnotations = method.getParameterAnnotations();
         for (int i = 0 ;i < parameterTypes.length;i++) {
             Class<?> parameterType = parameterTypes[i];
             if (parameterType == HttpServletRequest.class) {
@@ -73,12 +73,24 @@ public class GPDispatcherServlet extends HttpServlet {
             } else if (parameterType == HttpServletResponse.class) {
                 paramValues[i] = resp;
             } else if (parameterType == String.class) {
-                GPRequestMapping requestParam = parameterType.getAnnotation(GPRequestMapping.class);
-                if (parameterMap.containsKey(requestParam.value())) {
-                    for (Map.Entry<String,String[]> param:parameterMap.entrySet()) {
-                        String value = Arrays.toString(param.getValue()).
-                                replace("\\[|\\]","").replaceAll("\\s",",");
-                        paramValues[i] = value;
+//                GPRequestParam requestParam = parameterType.getAnnotation(GPRequestParam.class);
+//                if (parameterMap.containsKey(requestParam.value())) {
+//                    for (Map.Entry<String,String[]> param:parameterMap.entrySet()) {
+//                        String value = Arrays.toString(param.getValue()).
+//                                replace("\\[|\\]","").replaceAll("\\s",",");
+//                        paramValues[i] = value;
+//                    }
+//                }
+                Annotation[] annotations = paramAnnotations[i];
+                for (Annotation annotation:annotations) {
+                    if (annotation instanceof GPRequestParam) {
+                        String annotationValue = ((GPRequestParam) annotation).value();
+                        if (parameterMap.containsKey(annotationValue)) {
+                            String value = Arrays.toString(parameterMap.get(annotationValue)).
+                                    replaceAll("[\\[\\]]", "").
+                                    replaceAll("\\s", ",");
+                            paramValues[i] = value;
+                        }
                     }
                 }
             }
@@ -97,12 +109,13 @@ public class GPDispatcherServlet extends HttpServlet {
                 baseUrl = requestMapping.value();
             }
             for (Method method : clazz.getMethods()) {
-                if (method.isAnnotationPresent(GPRequestMapping.class)) {
+                if (!method.isAnnotationPresent(GPRequestMapping.class)) {
                     continue;
                 }
                 GPRequestMapping requestMapping = method.getAnnotation(GPRequestMapping.class);
-                String url = "/" + baseUrl + "/" + requestMapping.value().
+                String url = ("/" + baseUrl + "/" + requestMapping.value()).
                         replaceAll("/+","/");
+                System.out.println("url is " + url);
                 handlerMapping.put(url,method);
             }
         }
@@ -173,7 +186,9 @@ public class GPDispatcherServlet extends HttpServlet {
         URL url = this.getClass().getResource("/" +
                 scanPackage.replaceAll("\\.", "/"));
         File classPath = new File(url.getFile());
-        for (File file :classPath.listFiles()) {
+        File[] files = classPath.listFiles();
+        if (files == null) {return;}
+        for (File file :files) {
             if (file.isDirectory()){
                 doScanner(scanPackage + "." + file.getName());
             } else {
