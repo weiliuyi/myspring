@@ -1,0 +1,9 @@
+com\wly\spring\demo\service\impl\DemoService.class
+com\wly\spring\mvcframework\v2\GPDispatcherServlet.class
+com\wly\spring\demo\mvc\DemoAction.class
+com\wly\spring\mvcframework\annotation\GPService.class
+com\wly\spring\mvcframework\annotation\GPRequestMapping.class
+com\wly\spring\mvcframework\annotation\GPRequestParam.class
+com\wly\spring\demo\service\IDemoService.class
+com\wly\spring\mvcframework\annotation\GPAutowired.class
+com\wly\spring\mvcframework\annotation\GPController.class

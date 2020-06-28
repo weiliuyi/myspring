@@ -19,9 +19,10 @@ public class DemoAction {
     private IDemoService demoService;
 
     @GPRequestMapping("/query")
-    public void query (HttpServletRequest req, HttpServletResponse resq,
-                       @GPRequestParam("name") String name){
+    public void query (@GPRequestParam("name")String name,
+                       HttpServletRequest req, HttpServletResponse resq){
         String result = demoService.get(name);
+        System.out.println(result);
         try {
             resq.getWriter().write(result);
         } catch (IOException ignored) {
